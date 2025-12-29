@@ -1,15 +1,30 @@
-import { Pool } from "pg";
+import pkg from 'pg';
+const { Pool } = pkg;
 
-// Initialize pool only once
 let pool;
 
 function getPool() {
   if (!pool) {
+    const connectionString = process.env.DATABASE_URL;
+    
+    // Debug: Check if DATABASE_URL exists
+    if (!connectionString) {
+      console.error('DATABASE_URL is not set!');
+      throw new Error('DATABASE_URL environment variable is not configured');
+    }
+    
+    console.log('Initializing database pool...');
+    
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString,
       ssl: {
         rejectUnauthorized: false
       }
+    });
+    
+    // Test connection
+    pool.on('error', (err) => {
+      console.error('Unexpected database error:', err);
     });
   }
   return pool;
@@ -31,13 +46,18 @@ export default async function handler(req, res) {
     const currentPool = getPool();
 
     if (req.method === "GET") {
+      console.log('Fetching recipes from database...');
+      
       const { rows } = await currentPool.query(
         "SELECT * FROM recipes ORDER BY id ASC"
       );
+      
+      console.log(`Found ${rows.length} recipes`);
       return res.status(200).json(rows);
     }
 
     if (req.method === "POST") {
+      console.log('Adding new recipe...');
       const recipe = req.body;
 
       await currentPool.query(
@@ -56,23 +76,32 @@ export default async function handler(req, res) {
         ]
       );
 
+      console.log('Recipe added successfully');
       return res.status(201).json({ success: true });
     }
 
     if (req.method === "DELETE") {
       const { id } = req.query;
+      console.log(`Deleting recipe with id: ${id}`);
 
       await currentPool.query("DELETE FROM recipes WHERE id = $1", [id]);
+      
+      console.log('Recipe deleted successfully');
       return res.status(200).json({ success: true });
     }
 
     res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
-    console.error("Database error:", err);
-    res.status(500).json({ 
+    console.error("Database error details:", err);
+    
+    // Return detailed error information
+    return res.status(500).json({ 
       error: "Database error", 
       message: err.message,
-      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      code: err.code,
+      hint: err.hint,
+      detail: err.detail,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 }
