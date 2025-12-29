@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "node": "^24.2.0"
+  },
+  "main": "config.js",
+  "scripts": {
+    "start": "node config.js"
+  }
+}
