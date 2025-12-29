@@ -210,6 +210,260 @@ function hideAdminControls() {
   showToast("Admin logged out", "info");
 }
 
+function openAddRecipeModal() {
+  currentRecipe = null;
+  
+  // Clear form
+  document.getElementById("recipeName").value = "";
+  document.getElementById("recipeType").value = "breakfast";
+  document.getElementById("recipePrice").value = "";
+  document.getElementById("calories").value = "";
+  document.getElementById("protein").value = "";
+  document.getElementById("carbs").value = "";
+  document.getElementById("fat").value = "";
+  document.getElementById("fiber").value = "";
+  
+  // Clear ingredients
+  const ingredientsList = document.getElementById("ingredientsList");
+  ingredientsList.innerHTML = "";
+  addIngredientField();
+  
+  // Clear instructions
+  const instructionsList = document.getElementById("instructionsList");
+  instructionsList.innerHTML = "";
+  addInstructionField();
+  
+  // Show modal
+  document.getElementById("editRecipeModal").querySelector(".modal-title").textContent = "Add New Recipe";
+  const modal = new bootstrap.Modal(document.getElementById("editRecipeModal"));
+  modal.show();
+}
+
+function openEditRecipeModal(recipe) {
+  currentRecipe = recipe;
+  
+  const ingredients = typeof recipe.ingredients === 'string'
+    ? JSON.parse(recipe.ingredients)
+    : recipe.ingredients;
+  
+  const instructions = typeof recipe.instructions === 'string'
+    ? JSON.parse(recipe.instructions)
+    : recipe.instructions;
+  
+  const nutrition = typeof recipe.nutrition === 'string'
+    ? JSON.parse(recipe.nutrition)
+    : recipe.nutrition;
+  
+  // Fill form
+  document.getElementById("recipeName").value = recipe.name;
+  document.getElementById("recipeType").value = recipe.type;
+  document.getElementById("recipePrice").value = recipe.base_price;
+  document.getElementById("calories").value = nutrition.calories;
+  document.getElementById("protein").value = nutrition.protein;
+  document.getElementById("carbs").value = nutrition.carbs;
+  document.getElementById("fat").value = nutrition.fat;
+  document.getElementById("fiber").value = nutrition.fiber;
+  
+  // Fill ingredients
+  const ingredientsList = document.getElementById("ingredientsList");
+  ingredientsList.innerHTML = "";
+  ingredients.forEach(ing => {
+    addIngredientField(ing.amount, ing.unit, ing.name);
+  });
+  
+  // Fill instructions
+  const instructionsList = document.getElementById("instructionsList");
+  instructionsList.innerHTML = "";
+  instructions.forEach(inst => {
+    addInstructionField(inst);
+  });
+  
+  // Show modal
+  document.getElementById("editRecipeModal").querySelector(".modal-title").textContent = "Edit Recipe";
+  const modal = new bootstrap.Modal(document.getElementById("editRecipeModal"));
+  modal.show();
+}
+
+function addIngredientField(amount = "", unit = "", name = "") {
+  const ingredientsList = document.getElementById("ingredientsList");
+  const div = document.createElement("div");
+  div.className = "ingredient-field mb-2";
+  div.innerHTML = `
+    <div class="row">
+      <div class="col-md-2">
+        <input type="text" class="form-control ingredient-amount" placeholder="Amount" value="${amount}" required>
+      </div>
+      <div class="col-md-3">
+        <input type="text" class="form-control ingredient-unit" placeholder="Unit" value="${unit}" required>
+      </div>
+      <div class="col-md-5">
+        <input type="text" class="form-control ingredient-name" placeholder="Ingredient" value="${name}" required>
+      </div>
+      <div class="col-md-2">
+        <button type="button" class="btn btn-danger btn-sm w-100 remove-ingredient">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  `;
+  
+  div.querySelector(".remove-ingredient").onclick = () => {
+    if (ingredientsList.querySelectorAll(".ingredient-field").length > 1) {
+      div.remove();
+    } else {
+      showToast("You must have at least one ingredient", "error");
+    }
+  };
+  
+  ingredientsList.appendChild(div);
+}
+
+function addInstructionField(text = "") {
+  const instructionsList = document.getElementById("instructionsList");
+  const div = document.createElement("div");
+  div.className = "instruction-field mb-2";
+  div.innerHTML = `
+    <div class="row">
+      <div class="col-md-10">
+        <textarea class="form-control instruction-text" rows="2" placeholder="Instruction step" required>${text}</textarea>
+      </div>
+      <div class="col-md-2">
+        <button type="button" class="btn btn-danger btn-sm w-100 remove-instruction">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  `;
+  
+  div.querySelector(".remove-instruction").onclick = () => {
+    if (instructionsList.querySelectorAll(".instruction-field").length > 1) {
+      div.remove();
+    } else {
+      showToast("You must have at least one instruction", "error");
+    }
+  };
+  
+  instructionsList.appendChild(div);
+}
+
+async function saveRecipe() {
+  // Gather form data
+  const name = document.getElementById("recipeName").value.trim();
+  const type = document.getElementById("recipeType").value;
+  const basePrice = parseFloat(document.getElementById("recipePrice").value);
+  
+  if (!name || !basePrice) {
+    showToast("Please fill in all required fields", "error");
+    return;
+  }
+  
+  // Gather ingredients
+  const ingredients = [];
+  document.querySelectorAll(".ingredient-field").forEach(field => {
+    const amount = field.querySelector(".ingredient-amount").value.trim();
+    const unit = field.querySelector(".ingredient-unit").value.trim();
+    const ingName = field.querySelector(".ingredient-name").value.trim();
+    
+    if (amount && unit && ingName) {
+      ingredients.push({ amount, unit, name: ingName });
+    }
+  });
+  
+  if (ingredients.length === 0) {
+    showToast("Please add at least one ingredient", "error");
+    return;
+  }
+  
+  // Gather instructions
+  const instructions = [];
+  document.querySelectorAll(".instruction-field").forEach(field => {
+    const text = field.querySelector(".instruction-text").value.trim();
+    if (text) {
+      instructions.push(text);
+    }
+  });
+  
+  if (instructions.length === 0) {
+    showToast("Please add at least one instruction", "error");
+    return;
+  }
+  
+  // Gather nutrition
+  const nutrition = {
+    calories: parseInt(document.getElementById("calories").value) || 0,
+    protein: parseInt(document.getElementById("protein").value) || 0,
+    carbs: parseInt(document.getElementById("carbs").value) || 0,
+    fat: parseInt(document.getElementById("fat").value) || 0,
+    fiber: parseInt(document.getElementById("fiber").value) || 0
+  };
+  
+  // Create recipe object
+  const recipe = {
+    id: currentRecipe ? currentRecipe.id : `recipe-${Date.now()}`,
+    name,
+    type,
+    base_price: basePrice,
+    servings: 1,
+    ingredients,
+    instructions,
+    nutrition
+  };
+  
+  try {
+    // If editing, delete old recipe first
+    if (currentRecipe) {
+      await fetch(`/api/recipes?id=${currentRecipe.id}`, {
+        method: "DELETE"
+      });
+    }
+    
+    // Add new recipe
+    const res = await fetch("/api/recipes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(recipe)
+    });
+    
+    if (!res.ok) throw new Error("Failed to save recipe");
+    
+    showToast(currentRecipe ? "Recipe updated successfully" : "Recipe added successfully", "success");
+    
+    // Close modal and refresh
+    bootstrap.Modal.getInstance(document.getElementById("editRecipeModal")).hide();
+    await fetchRecipes();
+  } catch (error) {
+    console.error("Error saving recipe:", error);
+    showToast("Failed to save recipe", "error");
+  }
+}
+
+async function deleteRecipe(recipe) {
+  if (!confirm(`Are you sure you want to delete "${recipe.name}"?`)) {
+    return;
+  }
+  
+  try {
+    const res = await fetch(`/api/recipes?id=${recipe.id}`, {
+      method: "DELETE"
+    });
+    
+    if (!res.ok) throw new Error("Failed to delete recipe");
+    
+    showToast("Recipe deleted successfully", "success");
+    
+    // Close modal and refresh
+    const recipeModal = bootstrap.Modal.getInstance(document.getElementById("recipeModal"));
+    if (recipeModal) {
+      recipeModal.hide();
+    }
+    
+    await fetchRecipes();
+  } catch (error) {
+    console.error("Error deleting recipe:", error);
+    showToast("Failed to delete recipe", "error");
+  }
+}
+
 /* ------------------ BUG MANAGER ------------------ */
 
 function showBugManagerControls() {
@@ -384,6 +638,41 @@ function setupUI() {
   document.getElementById("adminLogoutBtn").onclick = () => {
     isAdmin = false;
     hideAdminControls();
+  };
+
+  // Add Recipe button
+  document.getElementById("addRecipeBtn").onclick = () => {
+    openAddRecipeModal();
+  };
+
+  // Add ingredient button
+  document.getElementById("addIngredientBtn").onclick = () => {
+    addIngredientField();
+  };
+
+  // Add instruction button
+  document.getElementById("addInstructionBtn").onclick = () => {
+    addInstructionField();
+  };
+
+  // Save recipe button
+  document.getElementById("saveRecipeBtn").onclick = () => {
+    saveRecipe();
+  };
+
+  // Edit recipe button in modal
+  document.querySelector(".modal-footer.admin-controls .edit-recipe").onclick = () => {
+    if (currentRecipe) {
+      bootstrap.Modal.getInstance(document.getElementById("recipeModal")).hide();
+      openEditRecipeModal(currentRecipe);
+    }
+  };
+
+  // Delete recipe button in modal
+  document.querySelector(".modal-footer.admin-controls .delete-recipe").onclick = () => {
+    if (currentRecipe) {
+      deleteRecipe(currentRecipe);
+    }
   };
 
   // Bug Manager login
