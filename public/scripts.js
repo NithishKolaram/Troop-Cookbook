@@ -6,9 +6,6 @@ let isBugManager = false;
 let currentRecipe = null;
 let currentBugId = null;
 
-const ADMIN_PASSWORD = "troop634admin";
-const BUG_MANAGER_PASSWORD = "bugmanager634";
-
 document.addEventListener("DOMContentLoaded", () => {
   fetchRecipes();
   setupUI();
@@ -357,17 +354,30 @@ function setupUI() {
     modal.show();
   };
 
-  document.getElementById("adminLoginForm").onsubmit = (e) => {
+  document.getElementById("adminLoginForm").onsubmit = async (e) => {
     e.preventDefault();
     const password = document.getElementById("adminPassword").value;
     
-    if (password === ADMIN_PASSWORD) {
-      isAdmin = true;
-      showAdminControls();
-      bootstrap.Modal.getInstance(document.getElementById("adminModal")).hide();
-      document.getElementById("adminPassword").value = "";
-    } else {
-      showToast("Invalid admin password", "error");
+    try {
+      const res = await fetch("/api/admin-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        isAdmin = true;
+        showAdminControls();
+        bootstrap.Modal.getInstance(document.getElementById("adminModal")).hide();
+        document.getElementById("adminPassword").value = "";
+      } else {
+        showToast("Invalid admin password", "error");
+      }
+    } catch (error) {
+      console.error("Admin login error:", error);
+      showToast("Login failed. Please try again.", "error");
     }
   };
 
@@ -382,17 +392,30 @@ function setupUI() {
     modal.show();
   };
 
-  document.getElementById("bugManagerForm").onsubmit = (e) => {
+  document.getElementById("bugManagerForm").onsubmit = async (e) => {
     e.preventDefault();
     const password = document.getElementById("bugManagerPassword").value;
     
-    if (password === BUG_MANAGER_PASSWORD) {
-      isBugManager = true;
-      showBugManagerControls();
-      bootstrap.Modal.getInstance(document.getElementById("bugManagerModal")).hide();
-      document.getElementById("bugManagerPassword").value = "";
-    } else {
-      showToast("Invalid bug manager password", "error");
+    try {
+      const res = await fetch("/api/bug-manager-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        isBugManager = true;
+        showBugManagerControls();
+        bootstrap.Modal.getInstance(document.getElementById("bugManagerModal")).hide();
+        document.getElementById("bugManagerPassword").value = "";
+      } else {
+        showToast("Invalid bug manager password", "error");
+      }
+    } catch (error) {
+      console.error("Bug manager login error:", error);
+      showToast("Login failed. Please try again.", "error");
     }
   };
 
